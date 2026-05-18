@@ -50,6 +50,7 @@ const DEFAULT_IGNORE_PATTERNS: Array[String] = [
 
 var entries: Array[Dictionary] = []
 var indexed_at_msec := 0
+var project_files_signature := ""
 var ignore_files_signature := ""
 var ignore_file_created_on_last_rebuild := false
 var ignore_patterns: Array[String] = []
@@ -62,6 +63,7 @@ func rebuild() -> int:
 	ignore_file_created_on_last_rebuild = ensure_project_ignore_file_exists()
 	ignore_patterns = _load_ignore_patterns()
 	ignore_files_signature = get_ignore_files_signature()
+	project_files_signature = get_project_files_signature()
 	_walk_directory("res://")
 	indexed_at_msec = Time.get_ticks_msec()
 	return entries.size()
@@ -153,6 +155,10 @@ func should_rebuild_for_ignore_changes() -> bool:
 	return ignore_files_signature != get_ignore_files_signature()
 
 
+func should_rebuild_for_project_changes() -> bool:
+	return project_files_signature != get_project_files_signature()
+
+
 func get_ignore_files_signature() -> String:
 	return "%s:%s|%s:%s" % [
 		PROJECT_IGNORE_FILE,
@@ -160,6 +166,13 @@ func get_ignore_files_signature() -> String:
 		LEGACY_PROJECT_IGNORE_FILE,
 		_get_file_signature(LEGACY_PROJECT_IGNORE_FILE),
 	]
+
+
+func get_project_files_signature() -> String:
+	var signature_parts: Array[String] = []
+	_collect_project_files_signature("res://", signature_parts)
+	signature_parts.sort()
+	return _join_signature_parts(signature_parts)
 
 
 func _get_file_signature(path: String) -> String:
@@ -197,6 +210,39 @@ func _walk_directory(path: String) -> void:
 		entry_name = directory.get_next()
 
 	directory.list_dir_end()
+
+
+func _collect_project_files_signature(path: String, signature_parts: Array[String]) -> void:
+	var directory := DirAccess.open(path)
+	if directory == null:
+		return
+
+	directory.list_dir_begin()
+	var entry_name := directory.get_next()
+	while !entry_name.is_empty():
+		var entry_path := _join_path(path, entry_name)
+		if _is_ignored_path(entry_path):
+			entry_name = directory.get_next()
+			continue
+
+		if directory.current_is_dir():
+			if !_should_ignore_directory(entry_name):
+				signature_parts.append("D:%s" % entry_path)
+				_collect_project_files_signature(entry_path, signature_parts)
+		else:
+			signature_parts.append("F:%s:%s" % [entry_path, _get_indexed_file_signature(entry_path)])
+
+		entry_name = directory.get_next()
+
+	directory.list_dir_end()
+
+
+func _join_signature_parts(signature_parts: Array[String]) -> String:
+	var signature := ""
+	for signature_part in signature_parts:
+		signature += signature_part + "\n"
+
+	return signature
 
 
 func _add_directory_entry(directory_name: String, path: String) -> void:
@@ -265,6 +311,15 @@ func _should_index_file_content(path: String) -> bool:
 		return false
 
 	return file.get_length() <= MAX_TEXT_FILE_BYTES
+
+
+func _get_indexed_file_signature(path: String) -> String:
+	var file := FileAccess.open(path, FileAccess.READ)
+	var file_length := 0
+	if file != null:
+		file_length = file.get_length()
+
+	return "%d:%d" % [FileAccess.get_modified_time(path), file_length]
 
 
 func _should_ignore_directory(directory_name: String) -> bool:

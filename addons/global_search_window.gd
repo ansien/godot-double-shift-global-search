@@ -29,7 +29,11 @@ func popup_search() -> void:
 	if search_box == null:
 		_build_ui()
 
-	if search_index.entries.is_empty() || search_index.should_rebuild_for_ignore_changes():
+	if (
+		search_index.entries.is_empty()
+		|| search_index.should_rebuild_for_ignore_changes()
+		|| search_index.should_rebuild_for_project_changes()
+	):
 		_rebuild_index()
 
 	var was_visible := visible
