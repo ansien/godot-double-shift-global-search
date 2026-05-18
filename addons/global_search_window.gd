@@ -41,7 +41,6 @@ func popup_search() -> void:
 	if visible:
 		hide()
 
-	always_on_top = true
 	popup_centered(Vector2i(900, 560))
 	search_box.grab_focus()
 
@@ -57,7 +56,6 @@ func _build_ui() -> void:
 	title = "Double Shift Global Search"
 	min_size = Vector2i(720, 420)
 	transient = true
-	always_on_top = true
 	exclusive = false
 	hide()
 	close_requested.connect(_on_close_requested)
