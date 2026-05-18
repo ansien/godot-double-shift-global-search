@@ -2,6 +2,7 @@
 extends Window
 
 const GlobalSearchIndex := preload("res://addons/doubleshiftglobalsearch/global_search_index.gd")
+const SEARCH_WINDOW_SIZE := Vector2i(900, 560)
 
 var editor_interface: EditorInterface
 var search_index := GlobalSearchIndex.new()
@@ -41,7 +42,7 @@ func popup_search() -> void:
 	if visible:
 		hide()
 
-	popup_centered(Vector2i(900, 560))
+	_popup_centered_on_editor_window(SEARCH_WINDOW_SIZE)
 	search_box.grab_focus()
 
 
@@ -117,6 +118,27 @@ func _build_ui() -> void:
 
 func _on_close_requested() -> void:
 	hide()
+
+
+func _popup_centered_on_editor_window(popup_size: Vector2i) -> void:
+	var editor_window := _get_editor_window()
+	if editor_window == null:
+		popup_centered(popup_size)
+		return
+
+	var centered_position := editor_window.position + ((editor_window.size - popup_size) / 2)
+	popup(Rect2i(centered_position, popup_size))
+
+
+func _get_editor_window() -> Window:
+	if editor_interface == null:
+		return null
+
+	var base_control := editor_interface.get_base_control()
+	if base_control == null:
+		return null
+
+	return base_control.get_window()
 
 
 func _on_search_text_changed(query: String) -> void:
